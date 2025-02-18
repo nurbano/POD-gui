@@ -12,6 +12,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Ensayo de desgaste")
+        self.text_var1 = QtWidgets.QLineEdit()
+        self.text_var2 = QtWidgets.QLineEdit()
+        self.num_var1 = QtWidgets.QSpinBox()
+        self.num_var2 = QtWidgets.QSpinBox()
+        self.num_var3 = QtWidgets.QSpinBox()
+        self.num_var4 = QtWidgets.QSpinBox()
+        self.num_var5 = QtWidgets.QSpinBox()
+        self.num_var6 = QtWidgets.QSpinBox()
+
+        self.cal_nombre_celda = QtWidgets.QLineEdit()
+        self.cal_k = QtWidgets.QSpinBox()
+        self.cal_rel_pal = QtWidgets.QSpinBox()
         self.show_main()
        
     def create_ensayar_widget(self):
@@ -27,7 +39,13 @@ class MainWindow(QtWidgets.QMainWindow):
         titles = ["Carga", "Temperatura", "Velocidad", "CoF"]
         y_labels = ["Carga (Kg)", "Temperatura (°C)", "Velocidad (RPM)", "COF"]
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
-
+        self.countdown_label = QtWidgets.QLabel("Tiempo restante: 00:00")
+        layout.addWidget(self.countdown_label, 3, 0, 1, 2)
+        self.countdown_timer = QtCore.QTimer()
+        self.countdown_timer.setInterval(1000)
+        self.countdown_timer.timeout.connect(self.update_countdown)
+        self.remaining_time = self.num_var1.value()* 60  # assuming num_var1 is duration in minutes
+        self.countdown_timer.start()
         for i, (title, y_label, color) in enumerate(zip(titles, y_labels, colors)):
             plot_widget = pg.PlotWidget()
             plot_widget.setBackground("w")
@@ -66,21 +84,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stop_button.clicked.connect(self.stop_and_observe)
 
         return widget
-
+    def update_countdown(self):
+        self.remaining_time -= 1
+        minutes = self.remaining_time // 60
+        seconds = self.remaining_time % 60
+        self.countdown_label.setText(f"Tiempo restante: {minutes:02d}:{seconds:02d}")
+        if self.remaining_time == 0:
+            self.stop_and_observe()
     def create_configurar_widget(self):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout()
         widget.setLayout(layout)
-
-        self.text_var1 = QtWidgets.QLineEdit()
-        self.text_var2 = QtWidgets.QLineEdit()
-        self.num_var1 = QtWidgets.QSpinBox()
-        self.num_var2 = QtWidgets.QSpinBox()
-        self.num_var3 = QtWidgets.QSpinBox()
-        self.num_var4 = QtWidgets.QSpinBox()
-        self.num_var5 = QtWidgets.QSpinBox()
-        self.num_var6 = QtWidgets.QSpinBox()
-
         layout.addRow("Nombre del Ensayo:", self.text_var1)
         layout.addRow("Duración (min):", self.num_var1)
         layout.addRow("Sentido de giro:", self.text_var2)
@@ -133,9 +147,6 @@ class MainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QFormLayout()
         widget.setLayout(layout)
 
-        self.cal_nombre_celda = QtWidgets.QLineEdit()
-        self.cal_k = QtWidgets.QSpinBox()
-        self.cal_rel_pal = QtWidgets.QSpinBox()
 
         layout.addRow("Identificación de la Celda de Carga:", self.cal_nombre_celda)
         layout.addRow("Constante de Calibración:", self.cal_k)
