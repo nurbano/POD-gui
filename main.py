@@ -12,6 +12,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Ensayo de desgaste")
+
+
+
         self.text_var1 = QtWidgets.QLineEdit()
         self.text_var2 = QtWidgets.QLineEdit()
         self.num_var1 = QtWidgets.QSpinBox()
@@ -24,23 +27,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cal_nombre_celda = QtWidgets.QLineEdit()
         self.cal_k = QtWidgets.QSpinBox()
         self.cal_rel_pal = QtWidgets.QSpinBox()
-        self.show_main()
-       
-    def create_ensayar_widget(self):
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
-        widget.setLayout(layout)
-        self.showMaximized()
         
-        widget.setLayout(layout)
+        self.show_main()
 
+
+    def create_ensayar_widget(self):
+        self.widget_ensayar = QtWidgets.QWidget()
+        self.layout_ensayar = QtWidgets.QGridLayout()
+        self.widget_ensayar.setLayout(self.layout_ensayar)
+        
+                
+        self.widget_ensayar.setLayout(self.layout_ensayar)
+        self.widget_ensayar.showMaximized()
         # Create subplots
         self.plot_graphs = {}
         titles = ["Carga", "Temperatura", "Velocidad", "CoF"]
         y_labels = ["Carga (Kg)", "Temperatura (°C)", "Velocidad (RPM)", "COF"]
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
         self.countdown_label = QtWidgets.QLabel("Tiempo restante: 00:00")
-        layout.addWidget(self.countdown_label, 3, 0, 1, 2)
+        self.layout_ensayar.addWidget(self.countdown_label, 3, 0, 1, 2)
         self.countdown_timer = QtCore.QTimer()
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self.update_countdown)
@@ -57,7 +62,7 @@ class MainWindow(QtWidgets.QMainWindow):
             plot_widget.addLegend()
             plot_widget.showGrid(x=True, y=True)
             plot_widget.setYRange(2, 40)
-            layout.addWidget(plot_widget, i // 2, i % 2)
+            self.layout_ensayar.addWidget(plot_widget, i // 2, i % 2)
             self.plot_graphs[title] = {
                 "widget": plot_widget,
                 "time": list(range(10)),
@@ -80,10 +85,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.start()
         # Add a stop button
         self.stop_button = QtWidgets.QPushButton("Detener Ensayo")
-        layout.addWidget(self.stop_button, 2, 0, 1, 2)
+        self.layout_ensayar.addWidget(self.stop_button, 2, 0, 1, 2)
         self.stop_button.clicked.connect(self.stop_and_observe)
-
-        return widget
+        
+        return self.widget_ensayar
     def update_countdown(self):
         self.remaining_time -= 1
         minutes = self.remaining_time // 60
@@ -184,9 +189,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_main(self):
  # Create a central widget
         #self.setGeometry(100, 100, 300, 200)
+
         self.central_widget = QtWidgets.QWidget()
         self.setCentralWidget(self.central_widget)
-        
+
         # Create a grid layout
         self.layout = QtWidgets.QGridLayout()
         self.central_widget.setLayout(self.layout)
@@ -212,17 +218,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.configurar_button.clicked.connect(self.show_configurar)
         self.calibrar_button.clicked.connect(self.show_calibrar)
         self.salida_button.clicked.connect(QtWidgets.QApplication.quit)
-
+        self.showNormal()
         # Create sub-widgets
-        self.ensayar_widget = self.create_ensayar_widget()
+        
         self.configurar_widget = self.create_configurar_widget()
         self.calibrar_widget = self.create_calibrar_widget()
 
     def show_ensayar(self):
+        self.ensayar_widget = self.create_ensayar_widget()
+        print("dar Marcha")
         self.central_widget.layout().removeWidget(self.central_widget)
-        self.central_widget = self.ensayar_widget
+        self.central_widget = self.widget_ensayar
         self.setCentralWidget(self.central_widget)
+        self.showMaximized()
 
+       
+        
     def show_configurar(self):
         self.central_widget.layout().removeWidget(self.central_widget)
         self.central_widget = self.configurar_widget
@@ -248,6 +259,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def stop_and_observe(self):
         self.timer.stop()
+        self.countdown_timer.stop()
+        print('Ensayo detenido')
         text, ok = QtWidgets.QInputDialog.getText(self, "Observaciones", "Escriba sus observaciones:")
         if ok:
             print(f"Observaciones: {text}")
