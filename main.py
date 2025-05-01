@@ -4,7 +4,7 @@ import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets
 import pandas as pd
 import configparser
-
+import numpy as np
 #import qdarktheme
 
 
@@ -12,8 +12,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Ensayo de desgaste")
-
-
+        self.temperatura= []
+        self.velocidad= []
+        self.carga= []
+        self.cof= []
+        self.iter=0
 
         self.text_var1 = QtWidgets.QLineEdit()
         self.text_var2 = QtWidgets.QLineEdit()
@@ -59,28 +62,30 @@ class MainWindow(QtWidgets.QMainWindow):
             styles = {"color": "black", "font-size": "14px"}
             plot_widget.setLabel("left", y_label, **styles)
             plot_widget.setLabel("bottom", "Tiempo (Segundos)", **styles)
-            plot_widget.addLegend()
+            #plot_widget.addLegend()
             plot_widget.showGrid(x=True, y=True)
             plot_widget.setYRange(2, 40)
             self.layout_ensayar.addWidget(plot_widget, i // 2, i % 2)
             self.plot_graphs[title] = {
                 "widget": plot_widget,
-                "time": list(range(10)),
-                "data": [randint(2, 40) for _ in range(10)],
+                "time": list(np.linspace(0, 60, 600)),
+                #"data": [0],
+                "data": [randint(0, 0) for _ in range(600)],
                 "line": plot_widget.plot(
-                    list(range(10)),
-                    [randint(2, 40) for _ in range(10)],
+                    list(range(600)),
+                    #[],
+                    [randint(2, 40) for _ in range(600)],
                     name=title.split()[0],
                     pen=pen,
                     symbol="o",
-                    symbolSize=5,
+                    symbolSize=4,
                     symbolBrush=color,
                 ),
             }
 
         # Add a timer to simulate new measurements
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(300)
+        self.timer.setInterval(100)
         self.timer.timeout.connect(self.update_plots)
         self.timer.start()
         # Add a stop button
@@ -246,11 +251,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_plots(self):
         for plot in self.plot_graphs.values():
+            print(plot["data"])
             plot["time"] = plot["time"][1:]
-            plot["time"].append(plot["time"][-1] + 1)
-            plot["data"] = plot["data"][1:]
-            plot["data"].append(randint(2, 40))
+            plot["time"].append(plot["time"][-1] + 0.1)
+            aux = plot["data"][:-1]
+            plot["data"]= [randint(2, 40)]
+            plot["data"].extend(aux)
+            
             plot["line"].setData(plot["time"], plot["data"])
+        print("-----------------")
 
     def save_to_excel(self):
         data = {title: plot["data"] for title, plot in self.plot_graphs.items()}
