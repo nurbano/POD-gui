@@ -2,12 +2,12 @@ import serial
 import time
 import pandas as pd
 
-def readserial(comport, baudrate, timestamp=False):
+def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comienzo=False):
 
     ser = serial.Serial(comport, baudrate, timeout=0.1)         # 1/timeout is the frequency at which the port is read
     ser.flushInput()                                            # Flush the input buffer to remove any old data
     ser.flushOutput()                                           # Flush the output buffer to remove any old data
-    VALUES=[]
+    #VALUES=[]
     #ser.write(b'TESTSTART-000800-000015\n')  # Send a string to the serial port
     while True:
 
@@ -15,15 +15,20 @@ def readserial(comport, baudrate, timestamp=False):
 
         if data and timestamp:
             timestamp = time.strftime('%H:%M:%S')
-            print(f'{timestamp} > {data}')
+            TIMESTAMP.append(timestamp)
+            #print(f'{timestamp} > {data}')
         
         if "tiempoMs," in data:
-            columns_name = list(map(str, data.split(',')))
-
+            columns_name = list( map(str, data.split(',')))
+            columns_name.insert(0, "timestamp")
+            
         elif "," in data:
+            #comienzo = True
             values = list(map(float, data.split(',')))
+            values.insert(0, timestamp)
             # Append the values to the list
             VALUES.append(values)
+            
         elif data:
             print(data)
         if data =='Iniciando....':
@@ -37,6 +42,10 @@ def readserial(comport, baudrate, timestamp=False):
             print('Guardando datos en data.csv')
             break
  
+def begin_test(ser):
+    ser.write(bytes('TESTSTART-000800-000005', 'utf-8'))  # Send a string to the serial port
+    print('Enviando comando de lectura...')
+    #time.sleep(1)  # Wait for 1 second before reading again
 
 if __name__ == '__main__':
 

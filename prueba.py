@@ -5,6 +5,8 @@ from PyQt5 import QtWidgets, QtCore
 import pandas as pd
 import atexit
 import time
+from prueba_serial import readserial, begin_test
+
 
 class RealTimePlot(QtWidgets.QMainWindow):
     def __init__(self):
@@ -91,6 +93,12 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.remaining_time = 60 # 60 segundos
         self.layout_ensayar.addWidget(self.countdown_label, 4, 0, 1, 2)
         self.countdown_timer.start()
+        #Abro el puerto serie
+        self.comport = 'COM4'
+        self.baudrate = 115200
+        self.timestamp = True
+        self.ser = readserial(self.comport, self.baudrate, self.timestamp)
+        
 
     def update_countdown(self):
         #print("hola")
