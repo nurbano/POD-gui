@@ -1,5 +1,5 @@
-import numpy as np
 
+lista= ["1","2", "3", "4", "5"]
 
-a= np.random.rand(4,4)
-print(a)
+lista.insert(0, "0")
+print(lista)

@@ -21,7 +21,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.widget_ensayar.setLayout(self.layout_ensayar)
         self.setCentralWidget(self.widget_ensayar)
         self.datos_graficos= [ 
-                        ("Carga", "Carga (kg)", "g", 0, 10000),
+                        ("Carga", "Carga (kg)", "g", 0, 1000),
                         ("Temp. Amb.", "T[ºC]", "b", 0,40),
                         ("Tempe. Ensayo", "T[ºC]", "y", 0, 40),
                          ("Velocidad", "RPM", "r", 0, 300),
@@ -32,8 +32,9 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.data = []
         self.temperatura = []
         self.carga = []
-        self.humedad = []
+        self.temperatura_amb = []
         self.velocidad = []
+        self.vueltas = []
         self.tiempo= []
 
         for i, (title, y_label, color, min_val, max_val) in enumerate(self.datos_graficos):
@@ -48,8 +49,8 @@ class RealTimePlot(QtWidgets.QMainWindow):
             graphWidget.showGrid(x=True, y=True)
 
             # Inicializar datos
-            buffer_size = 1600*3  # Número de puntos en el buffer (60 segundos con 10 puntos por segundo)
-            x = np.linspace(0, 180, buffer_size)  # Eje X: 60 segundos
+            buffer_size = 80*60  # Número de puntos en el buffer (180 segundos con 80 puntos por segundo)
+            x = np.linspace(0, 60, buffer_size)  # Eje X: 60 segundos
             y = np.zeros(buffer_size)  # Eje Y: valores iniciales en cero
             current_index = 0  # Índice para rastrear la posición actual en el buffer
             curve = graphWidget.plot(x, y, pen=pg.mkPen(color, width=2))
@@ -67,13 +68,14 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_label = QtWidgets.QLabel("Tiempo restante: 60  segundos")
-        self.remaining_time = 60 # 60 segundos
+        self.remaining_time = 40 # 60 segundos
         self.layout_ensayar.addWidget(self.countdown_label, 4, 0, 1, 2)
         self.countdown_timer.start()
         #Abro el puerto serie
         self.comport = 'COM4'
         self.baudrate = 115200
         self.timestamp = True
+        self.tiempo_horas= []
         self.TIMESTAMP= []
         self.VALUES= []
         self.comienzo = False
@@ -103,15 +105,31 @@ class RealTimePlot(QtWidgets.QMainWindow):
             if len(self.VALUES) > 1:
                 for actual_index in range(len(self.VALUES)-self.index):
                     #print(self.VALUES[i])
-                    self.tiempo.append(self.VALUES[actual_index+self.index][0])
-                    self.carga.append(self.VALUES[actual_index+self.index][1])
-                    self.temperatura.append(self.VALUES[actual_index+self.index][2])
-                    self.humedad.append(self.VALUES[actual_index+self.index][3])
-                    self.velocidad.append(self.VALUES[actual_index+self.index][4])
+                    #"tiempoMs,tempAmbC,tempObjC,vueltas,celdaCarga"
+                    self.tiempo_horas.append(self.VALUES[actual_index+self.index][0])
+                    self.tiempo.append(self.VALUES[actual_index+self.index][1])
+                    self.temperatura_amb.append(self.VALUES[actual_index+self.index][2])
+                    self.temperatura.append(self.VALUES[actual_index+self.index][3])
+                    self.vueltas.append(self.VALUES[actual_index+self.index][4])
+                    self.carga.append(self.VALUES[actual_index+self.index][5])
+                    # Calcular velocidad a partir del incremento de las últimas 3 vueltas
+                    if len(self.vueltas) >= 30:
+                        # Diferencia de vueltas en los últimos 3 puntos
+                        delta_vueltas = self.vueltas[-1] - self.vueltas[-31] if len(self.vueltas) > 30 else self.vueltas[-1] - self.vueltas[0]
+                        # Diferencia de tiempo en milisegundos
+                        delta_tiempo = self.tiempo[-1] - self.tiempo[-31] if len(self.tiempo) > 30 else self.tiempo[-1] - self.tiempo[0]
+                        if delta_tiempo > 0:
+                            # Velocidad en vueltas por segundo (Hz)
+                            velocidad = delta_vueltas / (delta_tiempo / 60000.0)
+                        else:
+                            velocidad = 0
+                        self.velocidad.append(velocidad)
+                    else:
+                        self.velocidad.append(0)
                 self.index +=actual_index
             #self.TIMESTAMP=[] 
             #self.VALUES=[]
-                self.tiempo.append(len(self.tiempo) * 0.1)
+                #self.tiempo.append(len(self.tiempo) * 0.1)
                 for i, (graphWidget, curve, x, y, current_index) in enumerate(self.graphs):
                     # Generar un nuevo valor aleatorio (puedes reemplazar esto con tus datos reales)
                     #min_val, max_val = self.random_data[self.datos_graficos[i][0]]
@@ -122,12 +140,11 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     elif i== 1:
                         new_value= self.temperatura[-actual_index:-1]
                     elif i== 2:
-                        new_value= self.humedad[-actual_index:-1]
+                        new_value= self.temperatura_amb[-actual_index:-1]
                     elif i== 3:
                         new_value= self.velocidad[-actual_index:-1]
 
-                    data_lists = [self.carga, self.temperatura, self.humedad, self.velocidad]
-                    #data_lists[i].append(new_value)
+                    
                     # Añadir el nuevo valor al final del buffer
                     for j in range(len(new_value)):
                         if current_index < len(y):
@@ -147,10 +164,11 @@ class RealTimePlot(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         # Guardar los datos en un archivo Excel
         data_dict = {
-            "Tiempo (s)": self.tiempo,
+            "Timestamp": self.tiempo_horas,
+            "Tiempo (ms)": self.tiempo,
             "Carga (kg)": self.carga,
             "Temperatura (ºC)": self.temperatura,
-            "Humedad (%)": self.humedad,
+            "Tempratura Amb. (ºC)": self.temperatura_amb,
             "Velocidad (m/s)": self.velocidad
         }
         df = pd.DataFrame(data_dict)
