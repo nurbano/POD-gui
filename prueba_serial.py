@@ -24,11 +24,13 @@ def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comi
             
         elif "," in data:
             #comienzo = True
+            #print(data)
             values = list(map(float, data.split(',')))
             timestamp = time.strftime('%H:%M:%S')
             values.insert(0, timestamp)
             # Append the values to the list
             VALUES.append(values)
+            
             
         elif data:
             print(data)

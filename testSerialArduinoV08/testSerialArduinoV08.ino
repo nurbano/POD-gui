@@ -9,18 +9,19 @@ int D3 = 3;  // PWM - Control de frecuencia del variador
 int D4 = 4;  // Control de encendido del motor
 float Freq = 0; // Frecuencia que envio al variador
 
-long tinicio = 0;                            // Tiempo en el que inicio el programa (en milisegundos)
+unsigned long tinicio = 0;                            // Tiempo en el que inicio el programa (en milisegundos)
 bool btinicio = false;         // bandera tiempo inicio
 int VTEJE = 0;                              // Vueltas totales leidas en el eje.
-long tiempo_de_muestreo;                    // necesario para timing del puerto serie
+unsigned long tiempo_de_muestreo;                    // necesario para timing del puerto serie
 String dataRowToSend;
 String dataReadFromSerial = "";             // for incoming serial data
 int funcion = 0;                            // Estado de funcionamiento  0-> Espera  1-> Testeando
 bool headerSent = false;                    // Flag si se ha enviado el header en el CSV
 int setRPM = 0;                             // RPM Seteadas por demanada del serial
-long setSECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
-long setMILISECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
-long currentMS;
+unsigned long setSECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
+unsigned long setMILISECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
+unsigned long currentMS;
+unsigned long sampled_time= 10000;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); //Para leer datos de temperatura con mlx.
 
 void setup() {
@@ -63,12 +64,10 @@ void loop() {
               }
 
               // CSV INFO
-              if(millis()>tiempo_de_muestreo+12.5)   //AUMENTAR TIEMPO DE MUESTRO +30ms (Envia datos cada 12.5ms = 1000/80 SPS-> Menor delay posible por limitaciones del HX711)
+              if(micros()>tiempo_de_muestreo+sampled_time)   //AUMENTAR TIEMPO DE MUESTRO +30ms (Envia datos cada 12.5ms = 1000/80 SPS-> Menor delay posible por limitaciones del HX711)
               {     
-                      
-                  tiempo_de_muestreo= millis();                            // Tiempo transcurrido en milisegundos  
-        
-                  
+                  tiempo_de_muestreo= micros();                            // Tiempo transcurrido en milisegundos  
+
                   // TIEMPO
                   currentMS=(millis()-tinicio);                         // Imprimir el tiempo
                   dataRowToSend = currentMS;
@@ -94,8 +93,7 @@ void loop() {
                   dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
                   // dataRowToSend=dataRowToSend+(hx711.read());            // Codigo para celda de carga del HX711
                   // dataRowToSend=dataRowToSend+",";                       // Agregar coma separadora (NO en el ultimo, formato CSV)
-        
-        
+                
                   // ENVIAR DATOS POR EL SERIAL
                   Serial.print(dataRowToSend);
                   Serial. print('\n');              // New Line

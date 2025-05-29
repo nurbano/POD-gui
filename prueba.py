@@ -49,8 +49,9 @@ class RealTimePlot(QtWidgets.QMainWindow):
             graphWidget.showGrid(x=True, y=True)
 
             # Inicializar datos
-            buffer_size = 80*60  # Número de puntos en el buffer (180 segundos con 80 puntos por segundo)
+            buffer_size = 100*60  # Número de puntos en el buffer (180 segundos con 80 puntos por segundo)
             x = np.linspace(0, 60, buffer_size)  # Eje X: 60 segundos
+            
             y = np.zeros(buffer_size)  # Eje Y: valores iniciales en cero
             current_index = 0  # Índice para rastrear la posición actual en el buffer
             curve = graphWidget.plot(x, y, pen=pg.mkPen(color, width=2))
@@ -105,6 +106,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
             if len(self.VALUES) > 1:
                 for actual_index in range(len(self.VALUES)-self.index):
                     #print(self.VALUES[i])
+                    print(actual_index, self.VALUES[actual_index+self.index])
                     #"tiempoMs,tempAmbC,tempObjC,vueltas,celdaCarga"
                     self.tiempo_horas.append(self.VALUES[actual_index+self.index][0])
                     self.tiempo.append(self.VALUES[actual_index+self.index][1])
@@ -112,6 +114,17 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     self.temperatura.append(self.VALUES[actual_index+self.index][3])
                     self.vueltas.append(self.VALUES[actual_index+self.index][4])
                     self.carga.append(self.VALUES[actual_index+self.index][5])
+                    # Limitar el tamaño de VALUES para que no crezca indefinidamente
+                    max_values_length = 5000  # Puedes ajustar este valor según lo necesario
+                    #print(f"Longitud de VALUES: {len(self.VALUES)}, Max: {max_values_length}")
+                    if len(self.VALUES) > max_values_length:
+                        del self.VALUES[:len(self.VALUES) - max_values_length]
+                        print("Valores eliminados para evitar crecimiento indefinido")
+                    #print(self.tiempo_horas[-1], self.tiempo[-1], self.temperatura_amb[-1], self.temperatura[-1], self.vueltas[-1], self.carga[-1])
+                    # actual_index es el número de nuevos datos procesados en este ciclo.
+                    # Se usa para saber cuántos elementos nuevos se han añadido y actualizar self.index.
+                    # No necesitas modificarlo, solo asegúrate de que después del for, hagas:
+                #self.index += actual_index
                     # Calcular velocidad a partir del incremento de las últimas 3 vueltas
                     if len(self.vueltas) >= 30:
                         # Diferencia de vueltas en los últimos 3 puntos
@@ -126,7 +139,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
                         self.velocidad.append(velocidad)
                     else:
                         self.velocidad.append(0)
-                self.index +=actual_index
+                self.index +=actual_index+1
             #self.TIMESTAMP=[] 
             #self.VALUES=[]
                 #self.tiempo.append(len(self.tiempo) * 0.1)
@@ -135,6 +148,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     #min_val, max_val = self.random_data[self.datos_graficos[i][0]]
                     #new_value = np.random.uniform(min_val, max_val)
                     #x= self.tiempo[-actual_index]
+                    tiempo_actual=self.tiempo[-actual_index:-1]
                     if i== 0:
                         new_value= self.carga[-actual_index:-1]
                     elif i== 1:
@@ -149,15 +163,25 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     for j in range(len(new_value)):
                         if current_index < len(y):
                             y[current_index] = new_value[j]
+                            x[current_index] = tiempo_actual[j]/1000
                             current_index += 1
                         else:
                             # Si el buffer está lleno, desplazar los valores hacia la izquierda
+                            print("Buffer lleno, desplazando valores")
                             y[:-1] = y[1:]
+                            x[:-1] = x[1:]
                             y[-1] = new_value[j]
+                            x[-1] = tiempo_actual[j]
 
                         # Actualizar la curva
+                        #print("x: ", x[current_index])
                         curve.setData(x, y)
                         self.graphs[i] = (graphWidget, curve, x, y, current_index)
+        
+        if self.ser.is_alive == False:
+            print("Murio el hilo")
+            # Aquí puedes agregar cualquier acción adicional que desees realizar al finalizar la lectura del puerto serie
+        
         #end_time = time.time()
        # print(end_time - start_time )
         #print("Tiempo de actualización:", end_time - start_time, "segundos")
