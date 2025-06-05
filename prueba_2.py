@@ -1,5 +1,8 @@
 import numpy as np
 
-x = np.linspace(0, 6000, 60*100) 
-x= np.arange(0, 6000, 10)
-print(x)
+x= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+print(len(x))  # Output: 10
+del x[:len(x) - 3]
+
+print(x)  # Output: [8, 9, 10]
+print(len(x))  # Output: 3

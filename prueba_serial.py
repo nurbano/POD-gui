@@ -35,7 +35,7 @@ def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comi
         elif data:
             print(data)
         if data =='Iniciando....':
-            ser.write(bytes('TESTSTART-000800-0000030', 'utf-8'))
+            ser.write(bytes('TESTSTART-000800-000900', 'utf-8'))
             print('Enviando comando de lectura...')
         if data == 'TESTEND':
             print('Lectura detenida')

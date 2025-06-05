@@ -21,7 +21,7 @@ int setRPM = 0;                             // RPM Seteadas por demanada del ser
 unsigned long setSECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
 unsigned long setMILISECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
 unsigned long currentMS;
-unsigned long sampled_time= 10000;
+unsigned long sampled_time= 12500;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); //Para leer datos de temperatura con mlx.
 
 void setup() {
@@ -69,34 +69,32 @@ void loop() {
                   tiempo_de_muestreo= micros();                            // Tiempo transcurrido en milisegundos  
 
                   // TIEMPO
-                  currentMS=(millis()-tinicio);                         // Imprimir el tiempo
+                  //currentMS=double(micros()/1000-tinicio);                         // Imprimir el tiempo
+                  currentMS=millis()-tinicio; 
                   dataRowToSend = currentMS;
+                  //dataRowToSend =float(tiempo_de_muestreo/1000);
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-        
                   // TEMPERATURA AMBIENTE       
                   dataRowToSend=dataRowToSend+"20.16";                       // Linea de codigo para testear
                   //dataRowToSend=dataRowToSend+(mlx.readAmbientTempC());  // Codigo para temperatura ambiente del MLX90614  
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-        
                   // TEMPERATURA OBJETO
                   float temp = 22.3 + float(currentMS)/(2000+currentMS) + float(random(0,10))/100;                // Linea de codigo para testear         Parto de 22.3 grados, le agrego un aumento de temperatura y un ruido
                   dataRowToSend=dataRowToSend + temp;                       // Linea de codigo para testear
                   //dataRowToSend=dataRowToSend+(mlx.readObjectTempC());   // Codigo para temperatura objeto del MLX90614  
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-        
                   // VUELTAS DEL EJE       
                   VTEJE = int(setRPM * float(currentMS) / 60000);                        // Linea de codigo para testear   EX: vtEje++;    
                   dataRowToSend=dataRowToSend+VTEJE;                        // Codigo para vueltas totales en el EJE  
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-        
                   // CELDA DE CARGA       
                   dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
                   // dataRowToSend=dataRowToSend+(hx711.read());            // Codigo para celda de carga del HX711
                   // dataRowToSend=dataRowToSend+",";                       // Agregar coma separadora (NO en el ultimo, formato CSV)
-                
+          
                   // ENVIAR DATOS POR EL SERIAL
                   Serial.print(dataRowToSend);
-                  Serial. print('\n');              // New Line
+                  Serial.print('\n');              // New Line
         
 
 
@@ -104,7 +102,7 @@ void loop() {
              if(currentMS > setMILISECONDS)     // Si paso el tiempo (segundos x 1000)
               {  
                  Serial.print("TESTEND");             // Enviar señal de finalizado
-                 Serial. print('\n');                 // New Line
+                 Serial.print('\n');                 // New Line
                  funcion = 0;                         // Volver a funcion de escucha de Serial
                    
               }            

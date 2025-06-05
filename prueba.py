@@ -49,19 +49,22 @@ class RealTimePlot(QtWidgets.QMainWindow):
             graphWidget.showGrid(x=True, y=True)
 
             # Inicializar datos
-            buffer_size = 100*60  # Número de puntos en el buffer (180 segundos con 80 puntos por segundo)
-            x = np.linspace(0, 60, buffer_size)  # Eje X: 60 segundos
-            
-            y = np.zeros(buffer_size)  # Eje Y: valores iniciales en cero
+            buffer_size = 80*60*60  # Número de puntos en el buffer (180 segundos con 80 puntos por segundo)
+            #x = np.linspace(0, 60, buffer_size)  # Eje X: 60 segundos
+            x= np.empty(buffer_size)
+            x.fill(np.nan)  # Rellenar con NaN para evitar problemas de visualización
+            y = np.empty(buffer_size)
+            y.fill(np.nan)  # Eje Y: valores iniciales en NaN
+            #y = np.zeros(buffer_size)  # Eje Y: valores iniciales en cero
             current_index = 0  # Índice para rastrear la posición actual en el buffer
-            curve = graphWidget.plot(x, y, pen=pg.mkPen(color, width=2))
+            curve = graphWidget.plot(x, y, pen=pg.mkPen(color, width=2,connect='finite'))
             self.layout_ensayar.addWidget(graphWidget, i // 2, i % 2)
             graphWidget.setYRange(min_val, max_val)
-            graphWidget.setXRange(0, 60)
+            #graphWidget.setXRange(0, 60)
             self.graphs[i] = (graphWidget, curve, x, y, current_index)
         # Configurar un temporizador para actualizar el gráfico
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(100)  # Intervalo de actualización en milisegundos (100 ms = 0.1 s)
+        self.timer.setInterval(250)  # Intervalo de actualización en milisegundos (100 ms = 0.1 s)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
@@ -69,7 +72,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_label = QtWidgets.QLabel("Tiempo restante: 60  segundos")
-        self.remaining_time = 40 # 60 segundos
+        self.remaining_time = 910 # 60 segundos
         self.layout_ensayar.addWidget(self.countdown_label, 4, 0, 1, 2)
         self.countdown_timer.start()
         #Abro el puerto serie
@@ -118,8 +121,10 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     max_values_length = 5000  # Puedes ajustar este valor según lo necesario
                     #print(f"Longitud de VALUES: {len(self.VALUES)}, Max: {max_values_length}")
                     if len(self.VALUES) > max_values_length:
-                        del self.VALUES[:len(self.VALUES) - max_values_length]
+                        eliminate_length = int(max_values_length*0.2)  # Eliminar el 20% de los datos más antiguos
+                        del self.VALUES[:eliminate_length]
                         print("Valores eliminados para evitar crecimiento indefinido")
+                        self.index -= eliminate_length
                     #print(self.tiempo_horas[-1], self.tiempo[-1], self.temperatura_amb[-1], self.temperatura[-1], self.vueltas[-1], self.carga[-1])
                     # actual_index es el número de nuevos datos procesados en este ciclo.
                     # Se usa para saber cuántos elementos nuevos se han añadido y actualizar self.index.
