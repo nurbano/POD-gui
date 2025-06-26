@@ -64,7 +64,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
             self.graphs[i] = (graphWidget, curve, x, y, current_index)
         # Configurar un temporizador para actualizar el gráfico
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(250)  # Intervalo de actualización en milisegundos (100 ms = 0.1 s)
+        self.timer.setInterval(100)  # Intervalo de actualización en milisegundos (100 ms = 0.1 s)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
@@ -109,7 +109,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
             if len(self.VALUES) > 1:
                 for actual_index in range(len(self.VALUES)-self.index):
                     #print(self.VALUES[i])
-                    print(actual_index, self.VALUES[actual_index+self.index])
+                    #print(actual_index, self.VALUES[actual_index+self.index])
                     #"tiempoMs,tempAmbC,tempObjC,vueltas,celdaCarga"
                     self.tiempo_horas.append(self.VALUES[actual_index+self.index][0])
                     self.tiempo.append(self.VALUES[actual_index+self.index][1])
@@ -117,6 +117,55 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     self.temperatura.append(self.VALUES[actual_index+self.index][3])
                     self.vueltas.append(self.VALUES[actual_index+self.index][4])
                     self.carga.append(self.VALUES[actual_index+self.index][5])
+                    # Guardar datos en disco cada 1000 muestras y limpiar listas para evitar uso excesivo de memoria
+                save_interval = 5000
+                if len(self.vueltas) >= 30:
+                        # Diferencia de vueltas en los últimos 3 puntos
+                        delta_vueltas = self.vueltas[-1] - self.vueltas[-31] if len(self.vueltas) > 30 else self.vueltas[-1] - self.vueltas[0]
+                        # Diferencia de tiempo en milisegundos
+                        delta_tiempo = self.tiempo[-1] - self.tiempo[-31] if len(self.tiempo) > 30 else self.tiempo[-1] - self.tiempo[0]
+                        if delta_tiempo > 0:
+                            # Velocidad en vueltas por segundo (Hz)
+                            velocidad = delta_vueltas / (delta_tiempo / 60000.0)
+                        else:
+                            velocidad = 0
+                        self.velocidad.append(velocidad)
+                else:
+                    self.velocidad.append(0)
+                self.index +=actual_index+1
+                if len(self.tiempo) >= save_interval:
+                    print(len(self.tiempo_horas), len(self.tiempo), len(self.carga), len(self.temperatura), len(self.temperatura_amb), len(self.vueltas))
+                    print(self.tiempo_horas[-1], self.tiempo[-1], self.temperatura_amb[-1], self.temperatura[-1], self.vueltas[-1], self.carga[-1])
+                    new_data_dict = {
+                        "Timestamp": self.tiempo_horas,
+                        "Tiempo (ms)": self.tiempo,
+                        "Carga (kg)": self.carga,
+                        "Temperatura (ºC)": self.temperatura,
+                        "Tempratura Amb. (ºC)": self.temperatura_amb,
+                        "Vueltas": self.vueltas
+                    }
+                    # for k, v in new_data_dict.items():
+                    #     print(f"{k}: {len(v)}")
+                    print("Guardando datos en disco...")
+                    # Crear un DataFrame de pandas
+                    df = pd.DataFrame(new_data_dict)
+                    # Guardar en modo append si el archivo ya existe
+                    output_path = "./datos_guardados_temp.xlsx"
+                    if not hasattr(self, 'first_save') or self.first_save:
+                        df.to_excel(output_path, index=False)
+                        self.first_save = False
+                    else:
+                        with pd.ExcelWriter(output_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, header=False, startrow=writer.sheets['Sheet1'].max_row)
+                    # Mantener solo los últimos 100 datos en memoria
+                    keep = 100
+                    self.tiempo_horas = self.tiempo_horas[-keep:]
+                    self.tiempo = self.tiempo[-keep:]
+                    self.carga = self.carga[-keep:]
+                    self.temperatura = self.temperatura[-keep:]
+                    self.temperatura_amb = self.temperatura_amb[-keep:]
+                    self.velocidad = self.velocidad[-keep:]
+                    self.vueltas = self.vueltas[-keep:]
                     # Limitar el tamaño de VALUES para que no crezca indefinidamente
                     max_values_length = 5000  # Puedes ajustar este valor según lo necesario
                     #print(f"Longitud de VALUES: {len(self.VALUES)}, Max: {max_values_length}")
@@ -131,20 +180,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     # No necesitas modificarlo, solo asegúrate de que después del for, hagas:
                 #self.index += actual_index
                     # Calcular velocidad a partir del incremento de las últimas 3 vueltas
-                    if len(self.vueltas) >= 30:
-                        # Diferencia de vueltas en los últimos 3 puntos
-                        delta_vueltas = self.vueltas[-1] - self.vueltas[-31] if len(self.vueltas) > 30 else self.vueltas[-1] - self.vueltas[0]
-                        # Diferencia de tiempo en milisegundos
-                        delta_tiempo = self.tiempo[-1] - self.tiempo[-31] if len(self.tiempo) > 30 else self.tiempo[-1] - self.tiempo[0]
-                        if delta_tiempo > 0:
-                            # Velocidad en vueltas por segundo (Hz)
-                            velocidad = delta_vueltas / (delta_tiempo / 60000.0)
-                        else:
-                            velocidad = 0
-                        self.velocidad.append(velocidad)
-                    else:
-                        self.velocidad.append(0)
-                self.index +=actual_index+1
+                    
             #self.TIMESTAMP=[] 
             #self.VALUES=[]
                 #self.tiempo.append(len(self.tiempo) * 0.1)
@@ -180,7 +216,27 @@ class RealTimePlot(QtWidgets.QMainWindow):
 
                         # Actualizar la curva
                         #print("x: ", x[current_index])
-                        curve.setData(x, y)
+                        #curve.setData(x, y)
+                        curve.setDownsampling(auto=True)
+                        curve.setClipToView(True)
+                        # Submuestreo para todos los gráficos excepto la carga (i == 0)
+                        #print(f"Actualizando gráfico {i} con {current_index} puntos")
+                        if i==0 and current_index > 8:
+                            # Submuestrear a 10 veces menos
+                            #print("Submuestreando carga")
+                            x_sub = x[:current_index][::8]
+                            y_sub = y[:current_index][::8]
+                            curve.setData(x_sub, y_sub)
+                        elif i != 0 and current_index > 80:
+                            # Submuestrear a 10 veces menos
+                            #print("Submuestreando temperatura")
+                            x_sub = x[:current_index][::80]
+                            y_sub = y[:current_index][::80]
+                            curve.setData(x_sub, y_sub)
+                        else:
+                            # Para la carga, mostrar todos los datos
+                            print("Actualizando carga sin submuestreo")
+                            curve.setData(x[:current_index], y[:current_index])
                         self.graphs[i] = (graphWidget, curve, x, y, current_index)
         
         if self.ser.is_alive == False:
@@ -198,7 +254,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
             "Carga (kg)": self.carga,
             "Temperatura (ºC)": self.temperatura,
             "Tempratura Amb. (ºC)": self.temperatura_amb,
-            "Velocidad (m/s)": self.velocidad
+            "Vueltas": self.vueltas
         }
         df = pd.DataFrame(data_dict)
         output_path = "./datos_guardados.xlsx"
