@@ -111,12 +111,22 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     #print(self.VALUES[i])
                     #print(actual_index, self.VALUES[actual_index+self.index])
                     #"tiempoMs,tempAmbC,tempObjC,vueltas,celdaCarga"
+                    #try:
                     self.tiempo_horas.append(self.VALUES[actual_index+self.index][0])
                     self.tiempo.append(self.VALUES[actual_index+self.index][1])
                     self.temperatura_amb.append(self.VALUES[actual_index+self.index][2])
                     self.temperatura.append(self.VALUES[actual_index+self.index][3])
                     self.vueltas.append(self.VALUES[actual_index+self.index][4])
                     self.carga.append(self.VALUES[actual_index+self.index][5])
+                    # except IndexError:
+                    #     print(self.VALUES[actual_index+self.index])
+                    #     print("Error: No se pudo acceder al índice  de VALUES. Asegúrate de que los datos estén completos.")
+                    #     self.tiempo_horas.append(0)  # Asignar un valor por defecto si no hay datos de tiempo
+                    #     self.tiempo.append(0)  # Asignar un valor por defecto si no hay datos de tiempo
+                    #     self.temperatura_amb.append(0)  # Asignar un valor por defecto si no hay datos de temperatura ambiente
+                    #     self.temperatura.append(0)  # Asignar un valor por defecto si no hay datos de temperatura
+                    #     self.vueltas.append(0)  # Asignar un valor por defecto si no hay datos de vueltas
+                    #     self.carga.append(0)  # Asignar un valor por defecto si no hay datos de carga
                     # Guardar datos en disco cada 1000 muestras y limpiar listas para evitar uso excesivo de memoria
                 save_interval = 5000
                 if len(self.vueltas) >= 30:
@@ -148,16 +158,21 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     #     print(f"{k}: {len(v)}")
                     print("Guardando datos en disco...")
                     # Crear un DataFrame de pandas
-                    df = pd.DataFrame(new_data_dict)
-                    # Guardar en modo append si el archivo ya existe
-                    output_path = "./datos_guardados_temp.xlsx"
-                    if not hasattr(self, 'first_save') or self.first_save:
-                        df.to_excel(output_path, index=False)
-                        self.first_save = False
-                    else:
-                        with pd.ExcelWriter(output_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
-                            df.to_excel(writer, index=False, header=False, startrow=writer.sheets['Sheet1'].max_row)
-                    # Mantener solo los últimos 100 datos en memoria
+                    try:
+                        df = pd.DataFrame(new_data_dict)
+                        # Guardar en modo append si el archivo ya existe
+                        output_path = "./datos_guardados_temp.xlsx"
+                        if not hasattr(self, 'first_save') or self.first_save:
+                            df.to_excel(output_path, index=False)
+                            self.first_save = False
+                        else:
+                            with pd.ExcelWriter(output_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
+                                df.to_excel(writer, index=False, header=False, startrow=writer.sheets['Sheet1'].max_row)
+                        # Mantener solo los últimos 100 datos en memoria
+                    except ValueError as e:
+                        print(f"Error al crear DataFrame: {e}")
+                        return
+                    
                     keep = 100
                     self.tiempo_horas = self.tiempo_horas[-keep:]
                     self.tiempo = self.tiempo[-keep:]
@@ -226,6 +241,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
                             #print("Submuestreando carga")
                             x_sub = x[:current_index][::8]
                             y_sub = y[:current_index][::8]
+                            #print(f"Actualizando gráfico {i} con {len(x_sub)} puntos")
                             curve.setData(x_sub, y_sub)
                         elif i != 0 and current_index > 80:
                             # Submuestrear a 10 veces menos
@@ -233,6 +249,8 @@ class RealTimePlot(QtWidgets.QMainWindow):
                             x_sub = x[:current_index][::80]
                             y_sub = y[:current_index][::80]
                             curve.setData(x_sub, y_sub)
+                            #print(f"Actualizando gráfico {i} con {len(x_sub)} puntos")
+                            
                         else:
                             # Para la carga, mostrar todos los datos
                             print("Actualizando carga sin submuestreo")

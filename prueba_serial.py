@@ -25,7 +25,13 @@ def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comi
         elif "," in data:
             #comienzo = True
             #print(data)
-            values = list(map(float, data.split(',')))
+            try:
+                #print("Convirtiendo datos a float...")
+                values = list(map(float, data.split(',')))
+            except ValueError:
+                print(f"Error converting data to float: {data}")
+                values= [0,0,0,0,0]
+                continue
             timestamp = time.strftime('%H:%M:%S')
             values.insert(0, timestamp)
             # Append the values to the list
