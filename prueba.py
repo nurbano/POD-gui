@@ -40,7 +40,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
         for i, (title, y_label, color, min_val, max_val) in enumerate(self.datos_graficos):
             # Crear un widget de gráfico
             graphWidget = pg.PlotWidget()
-            graphWidget.setTitle(title, color="black", size="20pt")
+            graphWidget.setTitle(title, color="black", size="18pt")
 
             # Configurar el gráfico
             graphWidget.setBackground("w")  # Fondo blanco
@@ -58,7 +58,12 @@ class RealTimePlot(QtWidgets.QMainWindow):
             #y = np.zeros(buffer_size)  # Eje Y: valores iniciales en cero
             current_index = 0  # Índice para rastrear la posición actual en el buffer
             curve = graphWidget.plot(x, y, pen=pg.mkPen(color, width=2,connect='finite'))
-            self.layout_ensayar.addWidget(graphWidget, i // 2, i % 2)
+            if i == 0:
+                # El gráfico 0 ocupa la mitad superior (fila 0, columnas 0 a 2)
+                self.layout_ensayar.addWidget(graphWidget, 0, 0, 1, 3)
+            else:
+                # Los gráficos 1, 2 y 3 ocupan la mitad inferior (fila 1, columnas 0, 1 y 2)
+                self.layout_ensayar.addWidget(graphWidget, 1, i - 1, 1, 1)
             graphWidget.setYRange(min_val, max_val)
             #graphWidget.setXRange(0, 60)
             self.graphs[i] = (graphWidget, curve, x, y, current_index)
@@ -71,7 +76,9 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.countdown_timer = QtCore.QTimer()
         self.countdown_timer.setInterval(1000)
         self.countdown_timer.timeout.connect(self.update_countdown)
-        self.countdown_label = QtWidgets.QLabel("Tiempo restante: 60  segundos")
+        self.remaining_time = 910 # 60 segundos
+        self.countdown_label = QtWidgets.QLabel(f'Tiempo restante: {self.remaining_time:02d} segundos')
+        self.countdown_label.setAlignment(QtCore.Qt.AlignCenter)
         self.remaining_time = 910 # 60 segundos
         self.layout_ensayar.addWidget(self.countdown_label, 4, 0, 1, 2)
         self.countdown_timer.start()
@@ -160,15 +167,20 @@ class RealTimePlot(QtWidgets.QMainWindow):
                     # Crear un DataFrame de pandas
                     try:
                         df = pd.DataFrame(new_data_dict)
-                        # Guardar en modo append si el archivo ya existe
-                        output_path = "./datos_guardados_temp.xlsx"
+                        # Guardar como archivo binario (pickle)
+                        output_path = "./datos_guardados_temp.pkl"
                         if not hasattr(self, 'first_save') or self.first_save:
-                            df.to_excel(output_path, index=False)
+                            df.to_pickle(output_path)
                             self.first_save = False
                         else:
-                            with pd.ExcelWriter(output_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
-                                df.to_excel(writer, index=False, header=False, startrow=writer.sheets['Sheet1'].max_row)
-                        # Mantener solo los últimos 100 datos en memoria
+                            # Leer datos existentes y concatenar
+                            try:
+                                df_old = pd.read_pickle(output_path)
+                                df_all = pd.concat([df_old, df], ignore_index=True)
+                                df_all.to_pickle(output_path)
+                            except Exception as e:
+                                print(f"Error al leer archivo binario existente: {e}")
+                                df.to_pickle(output_path)
                     except ValueError as e:
                         print(f"Error al crear DataFrame: {e}")
                         return
@@ -253,7 +265,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
                             
                         else:
                             # Para la carga, mostrar todos los datos
-                            print("Actualizando carga sin submuestreo")
+                            #print("Actualizando carga sin submuestreo")
                             curve.setData(x[:current_index], y[:current_index])
                         self.graphs[i] = (graphWidget, curve, x, y, current_index)
         
@@ -266,18 +278,14 @@ class RealTimePlot(QtWidgets.QMainWindow):
         #print("Tiempo de actualización:", end_time - start_time, "segundos")
     def closeEvent(self, event):
         # Guardar los datos en un archivo Excel
-        data_dict = {
-            "Timestamp": self.tiempo_horas,
-            "Tiempo (ms)": self.tiempo,
-            "Carga (kg)": self.carga,
-            "Temperatura (ºC)": self.temperatura,
-            "Tempratura Amb. (ºC)": self.temperatura_amb,
-            "Vueltas": self.vueltas
-        }
-        df = pd.DataFrame(data_dict)
-        output_path = "./datos_guardados.xlsx"
-        df.to_excel(output_path, index=False)
-        print(f"Datos guardados en {output_path}")
+        # Abrir el archivo binario y guardarlo como xlsx
+        try:
+            df = pd.read_pickle("./datos_guardados_temp.pkl")
+            output_path = "./datos_guardados.xlsx"
+            df.to_excel(output_path, index=False)
+            print(f"Datos guardados en {output_path}")
+        except Exception as e:
+            print(f"Error al guardar datos: {e}")
         event.accept()
         # Cerrar la aplicación
 if __name__ == "__main__":
