@@ -3,9 +3,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 import pandas as pd
-import atexit
-import time
-from prueba_serial import readserial
+from manejo_serial import readserial
 import threading
 import configparser
 from datetime import datetime
@@ -18,7 +16,21 @@ class RealTimePlot(QtWidgets.QMainWindow):
         pg.setConfigOption('background', 'b')  # Fondo blanco para el gráfico
         # Leer y cargar config.ini
         self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
+        # Pedir al usuario que seleccione el archivo .ini usando un QFileDialog
+        options = QtWidgets.QFileDialog.Options()
+        options |= QtWidgets.QFileDialog.ReadOnly
+        ini_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar archivo de configuración (.ini)",
+            "",
+            "Archivos INI (*.ini);;Todos los archivos (*)",
+            options=options
+        )
+        if ini_path:
+            self.config.read(ini_path)
+        else:
+            QtWidgets.QMessageBox.critical(self, "Error", "No se seleccionó un archivo de configuración. La aplicación se cerrará.")
+            sys.exit(1)
         # Configuración de la ventana
         self.setWindowTitle("Gráfico en Tiempo Real (60 segundos)")
         self.setGeometry(100, 100, 800, 600)
@@ -279,6 +291,20 @@ class RealTimePlot(QtWidgets.QMainWindow):
             print(f"Datos guardados en {output_path}")
         except Exception as e:
             print(f"Error al guardar datos: {e}")
+        # Guardar un archivo .txt con el mismo nombre y los datos del .ini
+        try:
+            txt_path = f"./{self.nombre_estacion}_{self.nombre_ensayo}_{fecha_hora}.txt"
+            with open(txt_path, "w", encoding="utf-8") as txt_file:
+                txt_file.write("Datos de configuración obtenidos del archivo config.ini:\n\n")
+                for section in self.config.sections():
+                    txt_file.write(f"[{section}]\n")
+                    for key, value in self.config.items(section):
+                        txt_file.write(f"{key} = {value}\n")
+                    txt_file.write("\n")
+            print(f"Archivo de configuración guardado en {txt_path}")
+        except Exception as e:
+            print(f"Error al guardar archivo txt: {e}")
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
