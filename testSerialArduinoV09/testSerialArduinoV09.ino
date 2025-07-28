@@ -2,11 +2,15 @@
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
 #include <Q2HX711.h>
+#include "pinout.h"
+
 #define DEBUG_ true
 // VARIABLES DEL PROGRAMA
-int CNY = 2; //Sensor de vueltas eje principal - CNY70 - Configurar como interrupcion del programa
-int D3 = 3;  // PWM - Control de frecuencia del variador
-int D4 = 4;  // Control de encendido del motor
+const byte hx711_data_pin = DT1;
+const byte hx711_clock_pin = SCK1;
+int CNY = INT0; //Sensor de vueltas eje principal - CNY70 - Configurar como interrupcion del programa
+int D3 = PWM1;  // PWM - Control de frecuencia del variador
+int D4 = OUT1;  // Control de encendido del motor
 float Freq = 0; // Frecuencia que envio al variador
 
 unsigned long tinicio = 0;                            // Tiempo en el que inicio el programa (en milisegundos)
@@ -22,6 +26,9 @@ unsigned long setSECONDS = 0;                         // SEGUNDOS Seteados por d
 unsigned long setMILISECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
 unsigned long currentMS;
 unsigned long sampled_time= 12500;
+
+Q2HX711 hx711(hx711_data_pin, hx711_clock_pin);
+
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); //Para leer datos de temperatura con mlx.
 
 void setup() {
@@ -95,14 +102,18 @@ void loop() {
                   
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora.
                  
-                  dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
                   // VUELTAS DEL EJE       
                   VTEJE = int(setRPM * float(currentMS) / 60000);            // Linea de codigo para testear   EX: vtEje++;    
                   dataRowToSend=dataRowToSend+VTEJE;                        // Codigo para vueltas totales en el EJE  
                   dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-                  // CELDA DE CARGA       
-                  dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
-                  // dataRowToSend=dataRowToSend+(hx711.read());            // Codigo para celda de carga del HX711
+                  // CELDA DE CARGA
+                  if (DEBUG_){
+                    dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
+                  }
+                  else{
+                    dataRowToSend=dataRowToSend+(hx711.read());            // Codigo para celda de carga del HX711
+                  }       
+                                    
                   // dataRowToSend=dataRowToSend+",";                       // Agregar coma separadora (NO en el ultimo, formato CSV)
           
                   // ENVIAR DATOS POR EL SERIAL
