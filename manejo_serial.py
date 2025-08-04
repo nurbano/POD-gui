@@ -11,6 +11,7 @@ def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comi
     while comienzo[0]:
 
         data = ser.readline().decode().strip()
+        data = data.replace('\r', '').replace('\n', '')  # Clean up the data
         if data and timestamp:
             timestamp = time.strftime('%H:%M:%S')
           
@@ -21,6 +22,12 @@ def readserial(comport, baudrate, timestamp=False, TIMESTAMP=[], VALUES=[], comi
         elif "," in data:
             try:
                 values = list(map(float, data.split(',')))
+                if len(values) != 5:
+                    print(f"Expected 5 values, got {len(values)}: {data}")
+                    continue
+                if any(map(lambda v: not (v == v and abs(v) < 1e9), values)):  # Check nan/inf
+                    print("Valores inválidos:", values)
+                    continue
             except ValueError:
                 print(f"Error converting data to float: {data}")
                 values= [0,0,0,0,0]

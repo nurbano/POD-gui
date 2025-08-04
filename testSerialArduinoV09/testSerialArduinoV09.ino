@@ -4,20 +4,20 @@
 #include <Q2HX711.h>
 #include "pinout.h"
 
-#define DEBUG_ true
+#define DEBUG_ false
 // VARIABLES DEL PROGRAMA
-const byte hx711_data_pin = DT1;
-const byte hx711_clock_pin = SCK1;
+const byte hx711_data_pin = SCK2;
+const byte hx711_clock_pin = DT2;
 int CNY = INT0; //Sensor de vueltas eje principal - CNY70 - Configurar como interrupcion del programa
 int D3 = PWM1;  // PWM - Control de frecuencia del variador
 int D4 = OUT1;  // Control de encendido del motor
 float Freq = 0; // Frecuencia que envio al variador
-
+//char dataRowToSend[100];
 unsigned long tinicio = 0;                            // Tiempo en el que inicio el programa (en milisegundos)
 bool btinicio = false;         // bandera tiempo inicio
 int VTEJE = 0;                              // Vueltas totales leidas en el eje.
 unsigned long tiempo_de_muestreo;                    // necesario para timing del puerto serie
-String dataRowToSend;
+//String dataRowToSend;
 String dataReadFromSerial = "";             // for incoming serial data
 int funcion = 0;                            // Estado de funcionamiento  0-> Espera  1-> Testeando
 bool headerSent = false;                    // Flag si se ha enviado el header en el CSV
@@ -26,7 +26,10 @@ unsigned long setSECONDS = 0;                         // SEGUNDOS Seteados por d
 unsigned long setMILISECONDS = 0;                         // SEGUNDOS Seteados por demanda del serial
 unsigned long currentMS;
 unsigned long sampled_time= 12500;
+unsigned long startTime=0;
+unsigned long timeThreshold=50;
 
+bool SENSOR_TEMP= true;
 Q2HX711 hx711(hx711_data_pin, hx711_clock_pin);
 
 Adafruit_MLX90614 mlx = Adafruit_MLX90614(); //Para leer datos de temperatura con mlx.
@@ -36,9 +39,14 @@ void setup() {
   Serial.begin(115200);
 
   tiempo_de_muestreo= millis();      //Define timing inicial
-
+  startTime= millis();
   mlx.begin(); //Inicia el sensor
-
+  if (isnan(mlx.readAmbientTempC())){ 
+    Serial.println("Sensor de temperatura no conectado");
+    SENSOR_TEMP= false;
+  
+  }
+                  
   pinMode(D4, OUTPUT); // Seteo como salida
   pinMode(D3, OUTPUT); // Seteo como salida
   
@@ -77,48 +85,66 @@ void loop() {
 
                   // TIEMPO
                   //currentMS=double(micros()/1000-tinicio);                         // Imprimir el tiempo
+                  long carga= 0;
                   currentMS=millis()-tinicio; 
-                  dataRowToSend = currentMS;
-                  //dataRowToSend =float(tiempo_de_muestreo/1000);
-                  dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
+                  char dataRowToSend[100];
+                  float t_amb = SENSOR_TEMP ? mlx.readAmbientTempC(): 20.16;
+                  float t_obj = SENSOR_TEMP ? mlx.readObjectTempC(): 22.3 + float(currentMS)/(2000+currentMS) + float(random(0,10))/100.0 ;
+                  char t_amb_str[10], t_obj_str[10];
+                  dtostrf(t_amb, 5, 2, t_amb_str);
+                  dtostrf(t_obj, 5, 2, t_obj_str);
                   
-                  // TEMPERATURA AMBIENTE       
-                  if (DEBUG_){
-                    dataRowToSend=dataRowToSend+"20.16";                       // Linea de codigo para testear
-                  }
-                  else{
-                    dataRowToSend=dataRowToSend+(mlx.readAmbientTempC());  // Codigo para temperatura ambiente del MLX90614
-                  }
-                    
-                  dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora.
-                  // TEMPERATURA OBJETO
-                  if (DEBUG_){
-                    float temp = 22.3 + float(currentMS)/(2000+currentMS) + float(random(0,10))/100;                // Linea de codigo para testear         Parto de 22.3 grados, le agrego un aumento de temperatura y un ruido
-                    dataRowToSend=dataRowToSend + temp;                       // Linea de codigo para testear
-                  }
-                  else{
-                    dataRowToSend=dataRowToSend+(mlx.readObjectTempC()); 
-                  }
-                  
-                  dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora.
+                  while (hx711.readyToSend()!=1) {
+                      
+                      //long carga = DEBUG_ ? random(720-(currentMS/1000), 740-(currentMS/1000)) : hx711.read() ;
+                  } 
+                  carga=hx711.read(); 
                  
-                  // VUELTAS DEL EJE       
-                  VTEJE = int(setRPM * float(currentMS) / 60000);            // Linea de codigo para testear   EX: vtEje++;    
-                  dataRowToSend=dataRowToSend+VTEJE;                        // Codigo para vueltas totales en el EJE  
-                  dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
-                  // CELDA DE CARGA
-                  if (DEBUG_){
-                    dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
-                  }
-                  else{
-                    dataRowToSend=dataRowToSend+(hx711.read());            // Codigo para celda de carga del HX711
-                  }       
-                                    
-                  // dataRowToSend=dataRowToSend+",";                       // Agregar coma separadora (NO en el ultimo, formato CSV)
-          
-                  // ENVIAR DATOS POR EL SERIAL
+                  snprintf(dataRowToSend, sizeof(dataRowToSend), "%lu,%s,%s,%d,%ld\n",
+                          currentMS,  t_amb_str,t_obj_str, VTEJE, carga);
                   Serial.print(dataRowToSend);
-                  Serial.print('\n');              // New Line
+                  // String dataRowToSend = String(currentMS);
+                  // //dataRowToSend =float(tiempo_de_muestreo/1000);
+                  // dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
+                  
+                  // // TEMPERATURA AMBIENTE       
+                  // if (DEBUG_){
+                  //   dataRowToSend=dataRowToSend+"20.16";                       // Linea de codigo para testear
+                  // }
+                  // else{
+                  //   dataRowToSend=dataRowToSend+String(mlx.readAmbientTempC(),2);  // Codigo para temperatura ambiente del MLX90614
+                  // }
+                    
+                  // dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora.
+                  // // TEMPERATURA OBJETO
+                  // if (DEBUG_){
+                  //   float temp = 22.3 + float(currentMS)/(2000+currentMS) + float(random(0,10))/100;                // Linea de codigo para testear         Parto de 22.3 grados, le agrego un aumento de temperatura y un ruido
+                  //   dataRowToSend=dataRowToSend + temp;                       // Linea de codigo para testear
+                  // }
+                  // else{
+                  //   dataRowToSend=dataRowToSend+String(mlx.readObjectTempC(),2); 
+                  // }
+                  
+                  // dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora.
+                 
+                  // // VUELTAS DEL EJE       
+                  // VTEJE = int(setRPM * float(currentMS) / 60000);            // Linea de codigo para testear   EX: vtEje++;    
+                  // dataRowToSend=dataRowToSend+String(VTEJE);                        // Codigo para vueltas totales en el EJE  
+                  // dataRowToSend=dataRowToSend+",";                          // Agregar coma separadora
+                  // // CELDA DE CARGA
+                  // if (DEBUG_){
+                  //   dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));                       // Linea de codigo para testear
+                  // }
+                  // else{
+                  //   dataRowToSend=dataRowToSend+String(hx711.read());            // Codigo para celda de carga del HX711
+                  //   //dataRowToSend=dataRowToSend+random(720- (currentMS/1000), 740 - (currentMS/1000));
+                  // }       
+                                    
+                  // // dataRowToSend=dataRowToSend+",";                       // Agregar coma separadora (NO en el ultimo, formato CSV)
+          
+                  // // ENVIAR DATOS POR EL SERIAL
+                  // Serial.println(dataRowToSend);
+                  // //Serial.print('\n');              // New Line
         
 
 
@@ -245,5 +271,12 @@ void leer_puerto_serie(){
 }
 
 void CNY70() {
-  VTEJE++;
+
+  if (millis() - startTime > timeThreshold)
+  {
+    VTEJE++;
+    startTime = millis();
   }
+  }
+  
+

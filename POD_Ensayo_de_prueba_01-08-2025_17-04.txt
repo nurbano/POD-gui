@@ -1,0 +1,16 @@
+Datos de configuración obtenidos del archivo config.ini:
+
+[Calibracion]
+factor_de_calibracion = 1.0
+cero_offset = 0.0
+
+[Serial]
+comport = COM3
+baudrate = 115200
+
+[Ensayo]
+t_ensayo = 90
+rpm_ensayo = 800
+nombre_estacion = POD
+nombre_ensayo = Ensayo_de_prueba
+
