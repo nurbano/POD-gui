@@ -1,3 +1,8 @@
 # Ignore Excel and CSV files
 *.xlsx
 *.csv
+build/
+dist/
+*.egg-info/
+.vscode/
+*.txt
