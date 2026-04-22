@@ -143,45 +143,46 @@ class RealTimePlot(QtWidgets.QMainWindow):
             self.close()
             return
 
-        nuevos_datos = False
+        nuevos_datos = []
         
-        # Extraer TODOS los datos acumulados en la cola durante los últimos 100ms
+        # 1. Vaciar toda la cola en una lista temporal al instante
         while not self.data_queue.empty():
             try:
-                # datos = (tiempo, temp_amb, temp_obj, vueltas, carga)
-                datos = self.data_queue.get_nowait()
-                nuevos_datos = True
-                
-                tiempo_ms, temp_amb, temp_obj, vueltas, carga = datos
-                tiempo_s = tiempo_ms / 1000.0
-                
-                # 1. Guardar en disco inmediatamente
-                self.csv_writer.writerow([tiempo_ms, temp_amb, temp_obj, vueltas, carga])
-
-                # 2. Desplazar la ventana y agregar nuevos datos
-                self.plot_time = np.roll(self.plot_time, -1)
-                self.plot_carga = np.roll(self.plot_carga, -1)
-                self.plot_temp_amb = np.roll(self.plot_temp_amb, -1)
-                self.plot_temp_obj = np.roll(self.plot_temp_obj, -1)
-                self.plot_vueltas = np.roll(self.plot_vueltas, -1)
-
-                self.plot_time[-1] = tiempo_s
-                self.plot_carga[-1] = carga
-                self.plot_temp_amb[-1] = temp_amb
-                self.plot_temp_obj[-1] = temp_obj
-                self.plot_vueltas[-1] = vueltas
-
-                self.data_count += 1
+                nuevos_datos.append(self.data_queue.get_nowait())
             except queue.Empty:
                 break
 
-        # Si entraron datos, actualizamos los gráficos
-        if nuevos_datos:
+        n = len(nuevos_datos) # Cantidad de muestras que llegaron de golpe
+        
+        if n > 0:
             if self.flag_countdown:
                 self.flag_countdown = False
                 self.countdown_timer.start()
 
-            # Calcular RPM (derivada de los últimos ~0.5 segundos = 40 muestras)
+            # 2. Guardar en el disco TODO EL BLOQUE de una sola vez (súper rápido)
+            self.csv_writer.writerows(nuevos_datos)
+            
+            # 3. Mover la ventana UNA SOLA VEZ la cantidad exacta de espacios (n)
+            self.plot_time = np.roll(self.plot_time, -n)
+            self.plot_carga = np.roll(self.plot_carga, -n)
+            self.plot_temp_amb = np.roll(self.plot_temp_amb, -n)
+            self.plot_temp_obj = np.roll(self.plot_temp_obj, -n)
+            self.plot_vueltas = np.roll(self.plot_vueltas, -n)
+
+            # 4. Rellenar esos últimos 'n' espacios vacíos con los datos nuevos
+            for i, datos in enumerate(nuevos_datos):
+                tiempo_ms, temp_amb, temp_obj, vueltas, carga = datos
+                idx = -n + i  # Índice relativo para ir llenando el final del array
+                
+                self.plot_time[idx] = tiempo_ms / 1000.0
+                self.plot_carga[idx] = carga
+                self.plot_temp_amb[idx] = temp_amb
+                self.plot_temp_obj[idx] = temp_obj
+                self.plot_vueltas[idx] = vueltas
+
+            self.data_count += n
+
+            # 5. Calcular RPM (derivada de las últimas 40 muestras)
             if self.data_count > 40:
                 delta_vueltas = self.plot_vueltas[-1] - self.plot_vueltas[-41]
                 delta_tiempo = self.plot_time[-1] - self.plot_time[-41]
@@ -189,13 +190,14 @@ class RealTimePlot(QtWidgets.QMainWindow):
             else:
                 rpm = 0
 
-            self.plot_velocidad = np.roll(self.plot_velocidad, -1)
-            self.plot_velocidad[-1] = rpm
+            self.plot_velocidad = np.roll(self.plot_velocidad, -n)
+            # Rellenamos las últimas 'n' posiciones de RPM con el valor actual
+            self.plot_velocidad[-n:] = rpm 
 
             # Determinar cuántos puntos mostrar (hasta que se llene la ventana de 3 min)
             pts = min(self.data_count, self.window_size)
             
-            # 3. Redibujar curvas de manera eficiente
+            # 6. Redibujar curvas de manera eficiente
             self.curves[0].setData(self.plot_time[-pts:], self.plot_carga[-pts:])
             self.curves[1].setData(self.plot_time[-pts:], self.plot_temp_amb[-pts:])
             self.curves[2].setData(self.plot_time[-pts:], self.plot_temp_obj[-pts:])
