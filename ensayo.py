@@ -38,6 +38,8 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.widget_ensayar.setLayout(self.layout_ensayar)
         self.setCentralWidget(self.widget_ensayar)
         
+        # OJO: Los límites iniciales (min_val, max_val) ya no importan tanto 
+        # porque ahora los calculamos dinámicamente, pero los dejamos de referencia.
         self.datos_graficos = [ 
             ("Carga", "Carga (kg)", "g", 0, 1000),
             ("Temp. Amb.", "T[ºC]", "b", 0, 40),
@@ -66,9 +68,8 @@ class RealTimePlot(QtWidgets.QMainWindow):
             graphWidget.setLabel("left", y_label)
             graphWidget.setLabel("bottom", "Tiempo (s)")
             graphWidget.showGrid(x=True, y=True)
-            graphWidget.setYRange(min_val, max_val)
-
-            # Desactivar el auto-rango
+            
+            # Apagamos por completo el auto-rango interno de PyQtGraph para evitar que se tilde
             graphWidget.getViewBox().disableAutoRange()
 
             curve = graphWidget.plot([], [], pen=pg.mkPen(color, width=2))
@@ -94,7 +95,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
         self.nombre_ensayo = self.config.get('Ensayo', 'nombre_ensayo', fallback='Ensayo')
         self.nombre_estacion = self.config.get('Ensayo', 'nombre_estacion', fallback='Estación 1')
         
-        # Etiqueta de tiempo (Ahora arranca con el tiempo total)
+        # Etiqueta de tiempo 
         self.countdown_label = QtWidgets.QLabel(f'Tiempo restante: {self.total_ensayo_s:02d} segundos')
         self.countdown_label.setAlignment(QtCore.Qt.AlignCenter)
         self.countdown_label.setStyleSheet("font-size: 16pt; font-weight: bold; color: #333;")
@@ -145,19 +146,18 @@ class RealTimePlot(QtWidgets.QMainWindow):
         
         if n > 0:
             # === ACTUALIZACIÓN DEL TIEMPO RESTANTE (HARDWARE TIMING) ===
-            # Tomamos el tiempo del último paquete recibido en este lote
             tiempo_actual_ms = nuevos_datos[-1][0]
             tiempo_restante_s = max(0, int(self.total_ensayo_s - (tiempo_actual_ms / 1000.0)))
             self.countdown_label.setText(f"Tiempo restante: {tiempo_restante_s:02d} segundos")
 
-            # Desplazamiento de los arrays mediante un único np.roll
+            # Desplazamiento de los arrays
             self.plot_time = np.roll(self.plot_time, -n)
             self.plot_carga = np.roll(self.plot_carga, -n)
             self.plot_temp_amb = np.roll(self.plot_temp_amb, -n)
             self.plot_temp_obj = np.roll(self.plot_temp_obj, -n)
             self.plot_vueltas = np.roll(self.plot_vueltas, -n)
 
-            # Inserción de los nuevos datos en el final del buffer
+            # Inserción de los nuevos datos
             for i, datos in enumerate(nuevos_datos):
                 tiempo_ms, temp_amb, temp_obj, vueltas, carga = datos
                 idx = -n + i  
@@ -169,7 +169,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
 
             self.data_count += n
 
-            # Cálculo de RPM suavizado
+            # Cálculo de RPM
             if self.data_count > 40:
                 delta_vueltas = self.plot_vueltas[-1] - self.plot_vueltas[-41]
                 delta_tiempo = self.plot_time[-1] - self.plot_time[-41]
@@ -182,17 +182,37 @@ class RealTimePlot(QtWidgets.QMainWindow):
 
             pts = min(self.data_count, self.window_size)
             
-            # Actualización eficiente de los datos en las curvas
+            # Actualización de datos en las curvas
             self.curves[0].setData(self.plot_time[-pts:], self.plot_carga[-pts:])
             self.curves[1].setData(self.plot_time[-pts:], self.plot_temp_amb[-pts:])
             self.curves[2].setData(self.plot_time[-pts:], self.plot_temp_obj[-pts:])
             self.curves[3].setData(self.plot_time[-pts:], self.plot_velocidad[-pts:])
 
-            # === CONTROL MANUAL DEL EJE X ===
+            # === CONTROL MANUAL DE EJES (X e Y) ===
             t_max = self.plot_time[-1]
             t_min = max(0, t_max - self.window_seconds)
-            for gw in self.graph_widgets:
+            
+            # Arrays con la porción visible de datos
+            datos_visibles = [
+                self.plot_carga[-pts:],
+                self.plot_temp_amb[-pts:],
+                self.plot_temp_obj[-pts:],
+                self.plot_velocidad[-pts:]
+            ]
+
+            for i, gw in enumerate(self.graph_widgets):
+                # Desplazamiento perfecto del Eje X
                 gw.setXRange(t_min, t_max, padding=0)
+                
+                # Auto-escala instantánea del Eje Y
+                y_min = np.min(datos_visibles[i])
+                y_max = np.max(datos_visibles[i])
+                
+                # Margen dinámico para que no toque los bordes
+                rango = y_max - y_min
+                margen = rango * 0.1 if rango > 0 else 5.0 
+                
+                gw.setYRange(y_min - margen, y_max + margen, padding=0)
 
     def closeEvent(self, event):
         self.comienzo[0] = False
