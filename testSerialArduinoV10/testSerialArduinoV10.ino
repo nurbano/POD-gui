@@ -16,8 +16,8 @@ struct DataPacket {
 #define DEBUG_ false
 
 // VARIABLES DEL PROGRAMA
-const byte hx711_data_pin = SCK2;
-const byte hx711_clock_pin = DT2;
+const byte hx711_data_pin = SCK1;
+const byte hx711_clock_pin = DT1;
 int CNY = INT0; //Sensor de vueltas eje principal - CNY70
 int D3 = PWM1;  // PWM - Control de frecuencia del variador
 int D4 = OUT1;  // Control de encendido del motor
