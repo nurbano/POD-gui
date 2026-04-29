@@ -17,6 +17,7 @@ class RealTimePlot(QtWidgets.QMainWindow):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
         
+        pg.setConfigOptions(useOpenGL=True)
         # Cargar archivo de configuración
         self.config = configparser.ConfigParser()
         options = QtWidgets.QFileDialog.Options()
