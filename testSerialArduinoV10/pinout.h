@@ -18,13 +18,13 @@
 #define INT1 3
 #define PWM1 5
 #define PWM2 6
-#define DT2 7
-#define SCK2 8
+#define DT2 8
+#define SCK2 7
 #define DIO1 9
 #define DIO2 10
 #define OUT1 11
 #define OUT2 12
-#define DT1 A2
-#define SCK1 A3
+#define DT1 A3
+#define SCK1 A2
 #define SDA A4
 #define SCL A5 
